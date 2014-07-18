@@ -178,6 +178,28 @@ class TestProjectFunctional(BaseTestCase):
         project = DBSession.query(Project).get(project_id)
         self.assertEqual(project.josm_preset, 'blah')
 
+    def test_project_edit__submitted_due_date(self):
+        headers = self.login_as_admin()
+        project_id = self.create_project()
+        date_str = '1/1/2150'
+        self.testapp.post('/project/%d/edit' % project_id,
+                          headers=headers,
+                          upload_files=[('josm_preset', 'preset.xml', 'blah')],
+                          params={
+                              'form.submitted': True,
+                              'license_id': 1,
+                              'priority': 2,
+                              'status': 2,
+                              'due_date': date_str
+                          },
+                          status=302)
+
+        from osmtm.models import Project, DBSession
+        project = DBSession.query(Project).get(project_id)
+        import datetime
+        date = datetime.datetime.strptime(date_str, "%m/%d/%Y")
+        self.assertEqual(project.due_date, date)
+
     def test_project_tasks_json(self):
         project_id = 1
         res = self.testapp.get('/project/%d/tasks.json' % project_id,
@@ -315,6 +337,16 @@ class TestProjectFunctional(BaseTestCase):
                                status=200, xhr=True)
         self.assertTrue('user1' in res)
 
+        # assign task to user 2
+        headers = self.login_as_project_manager()
+        self.testapp.get('/project/%d/task/1/user/user2' % project_id,
+                         headers=headers,
+                         status=200,
+                         xhr=True)
+        res = self.testapp.get('/project/%d/contributors' % project_id,
+                               status=200, xhr=True)
+        self.assertTrue('user2' in res)
+
     def test_project_stats(self):
         project_id = self.create_project()
 
@@ -432,3 +464,71 @@ class TestProjectFunctional(BaseTestCase):
         headers = self.login_as_project_manager()
         self.testapp.get('/project/%d/publish' % project_id, headers=headers,
                          status=302)
+
+    def test_project_users(self):
+        project_id = self.create_project()
+
+        res = self.testapp.get('/project/%d/users' % project_id,
+                               status=200, xhr=True)
+        self.assertEqual(len(res.json), 4)
+
+        res = self.testapp.get('/project/%d/users?q=pro' % project_id,
+                               status=200, xhr=True)
+        self.assertEqual(len(res.json), 1)
+
+        # assign task to user 1
+        headers = self.login_as_project_manager()
+        self.testapp.get('/project/%d/task/1/user/user1' % project_id,
+                         headers=headers,
+                         status=200,
+                         xhr=True)
+        res = self.testapp.get('/project/%d/users' % project_id,
+                               status=200, xhr=True)
+        self.assertEqual(res.json[0], u'user1')
+
+    def test_project_users__private_project(self):
+        import transaction
+        from osmtm.models import Project, DBSession
+        project_id = self.create_project()
+        project = DBSession.query(Project).get(project_id)
+        project.name = u'private_project'
+        project.private = True
+        DBSession.add(project)
+        DBSession.flush()
+        transaction.commit()
+
+        # access forbidden if not allowed user or project_manager
+        res = self.testapp.get('/project/%d/users' % project_id,
+                               status=403, xhr=True)
+
+        headers = self.login_as_project_manager()
+        res = self.testapp.get('/project/%d/users' % project_id,
+                               headers=headers,
+                               status=200, xhr=True)
+        self.assertEqual(len(res.json), 0)
+
+        # add a user to allowed_users
+        self.testapp.put('/project/%d/user/user1' % project_id,
+                         headers=headers, status=200)
+        res = self.testapp.get('/project/%d/users' % project_id,
+                               headers=headers,
+                               status=200, xhr=True)
+        self.assertEqual(len(res.json), 1)
+
+    def test_project_check_expiration(self):
+        import transaction
+        from osmtm.models import Project, DBSession
+        project_id = self.create_project()
+
+        project = DBSession.query(Project).get(project_id)
+
+        import datetime
+        now = datetime.datetime.now()
+        project.due_date = now - datetime.timedelta(hours=5)
+        DBSession.add(project)
+        DBSession.flush()
+        transaction.commit()
+
+        self.testapp.get('/', status=200)
+        project = DBSession.query(Project).get(project_id)
+        self.assertEqual(project.status, Project.status_archived)

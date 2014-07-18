@@ -248,6 +248,10 @@ class Task(Base):
     geometry = Column(Geometry('MultiPolygon', srid=4326))
     date = Column(DateTime, default=datetime.datetime.utcnow)
 
+    assigned_to_id = Column(Integer, ForeignKey('users.id'))
+    assigned_to = relationship(User)
+    assigned_date = Column(DateTime)
+
     cur_lock = relationship(
         TaskLock,
         primaryjoin=lambda: and_(
@@ -425,6 +429,8 @@ class Project(Base, Translatable):
                                  secondary=project_allowed_users)
 
     josm_preset = Column(Unicode)
+
+    due_date = Column(DateTime)
 
     def __init__(self, name, user=None):
         self.name = name

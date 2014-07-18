@@ -1,9 +1,10 @@
 $(document).ready(function() {
     $('.nav-tabs a:first').tab('show');
     $('.nav.languages li:first-of-type a').tab('show');
+    $('.input-group.date').datepicker({});
   var substringMatcher = function(strs) {
     return function findMatches(q, cb) {
-      var matches, substringRegex;
+      var matches, substrRegex;
 
       // an array that will be populated with substring matches
       matches = [];

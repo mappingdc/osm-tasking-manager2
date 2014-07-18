@@ -22,6 +22,7 @@ from sqlalchemy.orm import (
 )
 from sqlalchemy.sql.expression import (
     and_,
+    not_,
     func,
 )
 
@@ -51,6 +52,7 @@ log = logging.getLogger(__name__)
              permission='project_show')
 def project(request):
     check_task_expiration()
+    check_project_expiration()
     id = request.matchdict['project']
     project = DBSession.query(Project).get(id)
 
@@ -191,6 +193,13 @@ def project_edit(request):
         project.status = request.params['status']
         project.priority = request.params['priority']
 
+        if request.params.get('due_date', '') != '':
+            due_date = request.params.get('due_date')
+            due_date = datetime.datetime.strptime(due_date, "%m/%d/%Y")
+            project.due_date = due_date
+        else:
+            project.due_date = None
+
         if 'josm_preset' in request.params:
             josm_preset = request.params.get('josm_preset')
             if hasattr(josm_preset, 'value'):
@@ -314,6 +323,61 @@ def project_user_delete(request):
     return dict()
 
 
+@view_config(route_name='project_users', renderer='json',
+             permission="project_show")
+def project_users(request):
+    ''' get the list of users for a given project.
+        Returns list of allowed users if project is private.
+        Return complete list of users if project is not private.
+        Users with assigned tasks will appear first. '''
+
+    id = request.matchdict['project']
+    project = DBSession.query(Project).get(id)
+
+    query = request.params.get('q', '')
+    query_filter = User.username.ilike(u"%" + query + "%")
+
+    ''' list of users with assigned tasks '''
+    t = DBSession.query(
+            func.max(Task.assigned_date).label('date'),
+            Task.assigned_to_id
+        ) \
+        .filter(
+            Task.assigned_to_id != None,  # noqa
+            Task.project_id == id
+        ) \
+        .group_by(Task.assigned_to_id) \
+        .subquery('t')
+    assigned = DBSession.query(User) \
+        .join(t, and_(User.id == t.c.assigned_to_id)) \
+        .filter(query_filter) \
+        .order_by(t.c.date.desc()) \
+        .all()
+
+    r = []
+    for user in assigned:
+        r.append(user.username)
+
+    if project.private:
+        ''' complete list with allowed users '''
+        users = DBSession.query(User) \
+            .join(Project.allowed_users) \
+            .filter(Project.id == id, query_filter)
+        for user in users:
+            if user.username not in r:
+                r.append(user.username)
+    else:
+        ''' complete list with some users (up to 10 in total) '''
+        users = DBSession.query(User).order_by(User.username) \
+            .filter(query_filter)
+        if len(r) > 0:
+            users = users.filter(not_(User.username.in_(r)))
+        users = users.limit(max(0, 10 - len(r)))  # we don't want all users
+        r = r + [u.username for u in users]
+
+    return r
+
+
 @view_config(route_name='project_preset')
 def project_preset(request):
     id = request.matchdict['project']
@@ -337,15 +401,30 @@ def get_contributors(project):
         TaskState.state == TaskState.state_done
     )
 
-    tasks = DBSession.query(TaskState.id, User.username) \
+    tasks = DBSession.query(TaskState.task_id, User.username) \
                      .join(TaskState.user) \
                      .filter(filter) \
                      .order_by(TaskState.user_id) \
                      .all()
 
     contributors = {}
-    for username, tasks in itertools.groupby(tasks, key=lambda t: t.username):
-        contributors[username] = [task[0] for task in tasks]
+    for user, tasks in itertools.groupby(tasks, key=lambda t: t.username):
+        if user not in contributors:
+            contributors[user] = {}
+        contributors[user]['done'] = [task[0] for task in tasks]
+
+    assigned = DBSession.query(Task.id, User.username) \
+        .join(Task.assigned_to) \
+        .filter(
+            Task.project_id == project.id,
+            Task.assigned_to_id != None  # noqa
+        ) \
+        .order_by(Task.assigned_to_id)
+    for user, tasks in itertools.groupby(assigned,
+                                         key=lambda t: t.username):
+        if user not in contributors:
+            contributors[user] = {}
+        contributors[user]['assigned'] = [task[0] for task in tasks]
 
     return contributors
 
@@ -402,3 +481,14 @@ def get_stats(project):
         stats.append([task.date.isoformat(), done, validated])
 
     return {"total": total, "stats": stats}
+
+
+def check_project_expiration():
+    ''' Verifies if a project has expired, ie. that its due date is over '''
+    expired = DBSession.query(Project) \
+                       .filter(Project.due_date < datetime.datetime.now()) \
+                       .filter(Project.status != Project.status_archived)
+
+    for project in expired:
+        project.status = Project.status_archived
+        DBSession.add(project)
