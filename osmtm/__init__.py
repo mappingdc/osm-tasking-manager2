@@ -59,7 +59,8 @@ def main(global_config, **settings):
     config.add_route('oauth_callback', '/oauth_callback')
     config.add_route('project_new', '/project/new')
     config.add_route('project_new_grid', '/project/new/grid')
-    config.add_route('project_new_import', '/project/new/import')
+    config.add_route('project_new_arbitrary', '/project/new/arbitrary')
+    config.add_route('project_grid_simulate', '/project/grid_simulate')
     config.add_route('project', '/project/{project}')
     config.add_route('project_edit', '/project/{project}/edit')
     config.add_route('project_publish', '/project/{project}/publish')
@@ -98,6 +99,12 @@ def main(global_config, **settings):
     config.add_route('task_assign_delete',
                      '/project/{project}/task/{task}/user', xhr=True,
                      request_method="DELETE")
+    config.add_route('task_difficulty',
+                     '/project/{project}/task/{task}/difficulty/{difficulty}',
+                     xhr=True)
+    config.add_route('task_difficulty_delete',
+                     '/project/{project}/task/{task}/difficulty', xhr=True,
+                     request_method='DELETE')
 
     config.add_route('users', '/users')
     config.add_route('users_json', '/users.json')

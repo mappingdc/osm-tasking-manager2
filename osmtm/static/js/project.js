@@ -11,6 +11,7 @@ osmtm.project = (function() {
   var line;
   var chart;
   var lastUpdateCheck = (new Date()).getTime();
+  var lockedCounter;
 
   var states = [
     ['#dfdfdf'],
@@ -28,6 +29,16 @@ osmtm.project = (function() {
       var container = L.DomUtil.create('div', 'legend-control');
 
       var ul = L.DomUtil.create('ul', null, container);
+
+      var key, color;
+
+      key = L.DomUtil.create('li', null, ul);
+      color = L.DomUtil.create('div', 'key-color', key);
+      color.style.border = '2px solid orange';
+      key.innerHTML += 'Cur. worked on ';
+
+      lockedCounter = $('<span>');
+      $(key).append(lockedCounter);
 
       var i;
       for (i = 1; i < states.length; i++) {
@@ -98,6 +109,7 @@ osmtm.project = (function() {
       base_url + 'project/' + project_id + '/tasks.json',
       function(data) {
         tasksLayer.addData(data);
+        updateLockedCounter();
       }
     );
 
@@ -306,11 +318,11 @@ osmtm.project = (function() {
       return Math.round(input*p)/p;
     }
     function getLink(options) {
-      var bounds = options.bounds;
-      var so = new L.LatLng(bounds[0], bounds[1]),
-      ne = new L.LatLng(bounds[2], bounds[3]),
-      zoom = lmap.getBoundsZoom(new L.LatLngBounds(so, ne));
-      var c = options.centroid;
+      var bounds = options.bounds,
+          so = new L.LatLng(bounds[0], bounds[1]),
+          ne = new L.LatLng(bounds[2], bounds[3]),
+          zoom = lmap.getBoundsZoom(new L.LatLngBounds(so, ne));
+          c = options.centroid;
       switch (options.protocol) {
         case 'lbrt':
         return options.base + $.param({
@@ -336,21 +348,34 @@ osmtm.project = (function() {
     // currently selected task)
     switch (editor) {
       case "josm":
+      if (typeof licenseAgreementUrl != 'undefined') {
+        alert(requiresLicenseAgreementMsg);
+        window.location = licenseAgreementUrl;
+        break;
+      }
       url = getLink({
         base: 'http://127.0.0.1:8111/load_and_zoom?',
         bounds: task_bounds,
         protocol: 'lbrt'
       });
       $.ajax({
-        url: url,
+        url: 'http://127.0.0.1:8111/import',
+        data: {
+          url: task_osm_url
+        },
         complete: function(t) {
           if (t.status != 200) {
             alert("JOSM remote control did not respond. Do you have JOSM running and configured to be controlled remotely?");
           } else {
             $.ajax({
-              url: 'http://127.0.0.1:8111/import',
+              url: url
+            });
+            $.ajax({
+              url: 'http://127.0.0.1:8111/imagery',
               data: {
-                url: task_osm_url
+                title: "Tasking Manager - #" + project_id,
+                type: imagery_url.toLowerCase().substring(0,3),
+                url: imagery_url
               }
             });
           }
@@ -360,6 +385,7 @@ osmtm.project = (function() {
       case "potlatch2":
       url = getLink({
         base: 'http://www.openstreetmap.org/edit?editor=potlatch2&',
+        bounds: task_bounds,
         centroid: task_centroid,
         protocol: 'llz'
       });
@@ -368,6 +394,7 @@ osmtm.project = (function() {
       case "wp":
       url = getLink({
         base: 'http://walking-papers.org/?',
+        bounds: task_bounds,
         centroid: task_centroid,
         protocol: 'llz'
       });
@@ -386,7 +413,7 @@ osmtm.project = (function() {
           protocol: 'id'
         });
         url += "&gpx=" + gpx_url;
-        if (typeof imagery_url != "undefined") {
+        if (typeof imagery_url != "undefined" && imagery_url !== '') {
           // url is supposed to look like tms[22]:http://hiu...
           u = imagery_url.substring(imagery_url.indexOf('http'));
           u = u.replace('zoom', 'z');
@@ -654,10 +681,23 @@ osmtm.project = (function() {
             });
             tasksLayer.addData(task);
           });
+          updateLockedCounter();
         }
       }, dataType: "json"}
     );
     lastUpdateCheck = now;
+  }
+
+  /**
+   * Updates the 'currently worked on' counter
+   */
+  function updateLockedCounter() {
+    var count = 0;
+    var layers = tasksLayer.getLayers();
+    var locked = layers.filter(function(l) {
+      return l.feature.properties.locked == true;
+    });
+    lockedCounter.html('(' + locked.length + ')');
   }
 
   /**
