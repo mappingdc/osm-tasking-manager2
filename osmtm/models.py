@@ -1,3 +1,5 @@
+import math
+
 from sqlalchemy import (
     Table,
     Column,
@@ -256,6 +258,11 @@ class Task(Base):
     assigned_to = relationship(User)
     assigned_date = Column(DateTime)
 
+    difficulty_easy = 1
+    difficulty_medium = 2
+    difficulty_hard = 3
+    difficulty = Column(Integer)
+
     cur_lock = relationship(
         TaskLock,
         primaryjoin=lambda: and_(
@@ -312,7 +319,8 @@ class Task(Base):
         self.zoom = zoom
         if geometry is None:
             geometry = self.to_polygon()
-            geometry = ST_Transform(shape.from_shape(geometry, 3857), 4326)
+            multipolygon = MultiPolygon([geometry])
+            geometry = ST_Transform(shape.from_shape(multipolygon, 3857), 4326)
 
         self.geometry = geometry
 
@@ -449,19 +457,20 @@ class Project(Base, Translatable):
 
         tasks = []
         for i in get_tiles_in_geom(geom_3857, zoom):
-            geometry = ST_Transform(shape.from_shape(i[2], 3857), 4326)
+            multi = MultiPolygon([i[2]])
+            geometry = ST_Transform(shape.from_shape(multi, 3857), 4326)
             tasks.append(Task(i[0], i[1], zoom, geometry))
         self.tasks = tasks
-        self.zoom = zoom
 
     def import_from_geojson(self, input):
 
-        polygons = parse_geojson(input)
+        geoms = parse_geojson(input)
 
         tasks = []
-        for polygon in polygons:
-            multi = MultiPolygon([polygon])
-            tasks.append(Task(None, None, None, 'SRID=4326;%s' % multi.wkt))
+        for geom in geoms:
+            if not isinstance(geom, MultiPolygon):
+                geom = MultiPolygon([geom])
+            tasks.append(Task(None, None, None, 'SRID=4326;%s' % geom.wkt))
 
         self.tasks = tasks
 
@@ -492,7 +501,7 @@ class Project(Base, Translatable):
         if not done:
             done = 0
 
-        return round(done * 100 / total) if total != 0 else 0
+        return math.floor(done * 100 / total) if total != 0 else 0
 
     def get_validated(self):
         total = DBSession.query(func.sum(ST_Area(Task.geometry))) \
@@ -513,7 +522,7 @@ class Project(Base, Translatable):
         if not validated:
             validated = 0
 
-        return round(validated * 100 / total) if total != 0 else 0
+        return math.floor(validated * 100 / total) if total != 0 else 0
 
     def to_bbox(self):
         return shape.to_shape(self.area.geometry).bounds

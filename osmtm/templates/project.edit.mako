@@ -1,13 +1,12 @@
 # -*- coding: utf-8 -*-
 <%inherit file="base.mako"/>
 <%block name="header">
-<a href="${request.route_path('home')}" class="navbar-brand"><i class="glyphicon glyphicon-home"></i></a>
-<a class="navbar-brand">${project.name} - Edit</a>
+<h1>${project.id} - ${project.name} - Edit</h1>
 </%block>
 <%block name="content">
-<link rel="stylesheet" href="${request.static_url('osmtm:static/js/lib/datepicker3.css')}">
-<script type="text/javascript" src="${request.static_url('osmtm:static/js/lib/angular.min.js')}"></script>
-<script type="text/javascript" src="${request.static_url('osmtm:static/js/lib/bootstrap-datepicker.js')}"></script>
+<link rel="stylesheet" href="${request.static_url('osmtm:static/js/lib/datepicker3.css', _query={'v':'2.3.1'})}">
+<script type="text/javascript" src="${request.static_url('osmtm:static/js/lib/angular.min.js', _query={'v':'2.3.1'})}"></script>
+<script type="text/javascript" src="${request.static_url('osmtm:static/js/lib/bootstrap-datepicker.js', _query={'v':'2.3.1'})}"></script>
 <div id="markdown_cheat_sheet" class="modal fade">
   <div class="modal-dialog">
   <div class="modal-content">
@@ -24,8 +23,7 @@
   var project_id = ${project.id};
 </script>
 <div class="container">
-  <form method="post" action="" enctype="multipart/form-data" class="form"
-        enctype="multipart/form-data">
+  <form method="post" action="" enctype="multipart/form-data" class="form">
     <div class="row">
       <div class="tabbable tabs row">
         <ul class="nav nav-tabs">
@@ -65,7 +63,7 @@
       </div>
     </div>
   </form>
-  <script type="text/javascript" src="${request.static_url('osmtm:static/js/project.edit.js')}"></script>
+  <script type="text/javascript" src="${request.static_url('osmtm:static/js/project.edit.js', _query={'v':'2.3.1'})}"></script>
   <script src="http://twitter.github.io/typeahead.js/releases/latest/typeahead.bundle.js"></script>
 </div>
 </%block>

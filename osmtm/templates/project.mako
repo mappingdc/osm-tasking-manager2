@@ -1,15 +1,14 @@
 # -*- coding: utf-8 -*-
 <%inherit file="base.mako"/>
 <%block name="header">
-<a href="${request.route_path('home')}" class="navbar-brand"><i class="glyphicon glyphicon-home"></i></a>
-<a class="navbar-brand">
-  ${project.name}
+<h1>
+  #${project.id} - ${project.name}
   % if project.status == project.status_draft:
    (${_('Draft')})
   % elif project.status == project.status_archived:
    (${_('Archived')})
   % endif
-</a>
+</h1>
 </%block>
 <%block name="content">
 <%
@@ -77,8 +76,8 @@ else:
     </div>
   </div>
 </div>
-<script src="${request.static_url('osmtm:static/js/lib/leaflet.js')}"></script>
-<script src="${request.static_url('osmtm:static/js/lib/Leaflet.utfgrid/dist/leaflet.utfgrid.js')}"></script>
+<script src="${request.static_url('osmtm:static/js/lib/leaflet.js', _query={'v':'2.3.1'})}"></script>
+<script src="${request.static_url('osmtm:static/js/lib/Leaflet.utfgrid/dist/leaflet.utfgrid.js', _query={'v':'2.3.1'})}"></script>
 <script>
 <%
 from shapely.wkb import loads
@@ -95,5 +94,6 @@ var statesI18n = ["${_('Ready')}", "${_('Invalidated')}", "${_('Done')}", "${_('
 var commentRequiredMsg = "${_('You must leave a comment.')}"
 </script>
   <script src="http://d3js.org/d3.v3.js"></script>
-  <script type="text/javascript" src="${request.static_url('osmtm:static/js/project.js')}"></script>
+  <script type="text/javascript" src="${request.static_url('osmtm:static/js/project.js', _query={'v':'2.3.1'})}"></script>
+  <script type="text/javascript" src="${request.static_url('osmtm:static/js/task.difficulty.js', _query={'v':'2.3.1'})}"></script>
 </%block>

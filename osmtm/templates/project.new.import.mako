@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 <%inherit file="base.mako"/>
 <%block name="header">
-<a href="${request.route_path('home')}" class="navbar-brand"><i class="glyphicon glyphicon-home"></i></a>
-<a class="navbar-brand">Project New</a>
+<h1>Project New</h1>
 </%block>
 <%block name="content">
 <div class="container">
@@ -16,5 +15,5 @@
     </p>
   </form>
 </div>
-<script src="${request.static_url('osmtm:static/js/project.new.import.js')}"></script>
+<script src="${request.static_url('osmtm:static/js/project.new.import.js', _query={'v':'2.3.1'})}"></script>
 </%block>

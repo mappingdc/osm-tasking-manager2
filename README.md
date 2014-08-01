@@ -91,18 +91,15 @@ To run the tests, use the following command:
 
     env/bin/nosetests
 
-## Upgrading
+## Application deployment
 
-When upgrading the application code, you may need to upgrade the database
-as well in case the schema has changed.
-
-In order to do you this, you first need to ensure that you'll be able to
-re-create the database in case something wents wrong. Creating a copy of the
-current data is a good idea.
-
-Then you can run the following command:
-
-    env/bin/alembic upgrade head
+1. pull latest updates from the repository: `git pull origin`
+1. update the submodules: `git submodule update`
+1. update/install python modules: `python setup.py develop`
+1. create database dump: `pg_dump -Fc -f osmtm2_latest.dmp database_name`
+1. run database migrations: `alembic upgrade head`
+1. compile messages: `python setup.py compile_catalog`
+1. restart application server
 
 
 ## Localization
@@ -160,7 +157,7 @@ Example `.transifexrc` file:
 
 * update pot and source po file
   * `python setup.py extract_messages`
-  * `python setup.py update_catalog`
+  * `python setup.py init_catalog -l en`
 
 * push the source file to Transifex service
   * `tx push -s`
@@ -171,6 +168,6 @@ Example `.transifexrc` file:
   * we need to configure local mapping: `tx set -r osm-tasking-manager2.master -l hr osmtm/locale/hr/LC_MESSAGES/osmtm.po`
   * append the new language to the `available_languages` configuration variable in *production.ini* file: `available_languages = en fr hr`
 * after there are some translation updates, pull latest changes for mapped resources
-  * `tx pull -l fr -l hr`
+  * `tx pull -l fr,hr`
 * compile language files
   * `python setup.py compile_catalog`

@@ -310,7 +310,7 @@ def random_task(request):
         .filter(Task.cur_state.has(state=TaskState.state_ready)) \
         .filter(Task.geometry.ST_Disjoint(locked.c.taskunion))
     count = taskgetter.count()
-    if count != 0:
+    if count != 0:  # pragma: no cover
         atask = taskgetter.offset(random.randint(0, count - 1)).first()
         return dict(success=True, task=dict(id=atask.id))
 
@@ -382,6 +382,33 @@ def task_osm(request):
                                         'http://www.openstreetmap.org'))
     return dict(multipolygon=shape.to_shape(task.geometry),
                 project_id=task.project_id)
+
+
+@view_config(route_name='task_difficulty', renderer='json',
+             permission='project_edit')
+def task_difficulty(request):
+    """Change task difficulty"""
+    task = __get_task(request)
+    difficulty = request.matchdict['difficulty']
+
+    task.difficulty = difficulty
+
+    _ = request.translate
+    return dict(success=True,
+                msg=_("Task difficulty changed."))
+
+
+@view_config(route_name='task_difficulty_delete', renderer='json',
+             permission='project_edit')
+def task_difficulty_delete(request):
+    """Remove assignment"""
+    task = __get_task(request)
+
+    task.difficulty = None
+
+    _ = request.translate
+    return dict(success=True,
+                msg=_("Task difficulty removed"))
 
 
 # unlock any expired task
